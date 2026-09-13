@@ -1,0 +1,5 @@
+streamlit>=1.42,<2
+Pillow>=11,<13
+numpy>=2,<3
+pytest>=8,<9
+
