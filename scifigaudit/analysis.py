@@ -73,14 +73,17 @@ def analyse_figure(image: Image.Image, description: str = "") -> AuditResult:
     evidence = f"{len(data_colours)} dominant data colour(s); minimum weighted distance: {min_distance:.1f}"
     checks.append(_check("colour", "Colour distinguishability", colour_status, colour_message, evidence, 20))
 
-    border = max(2, round(min(width, height) * 0.01))
+    border = max(3, round(min(width, height) * 0.02))
     centre = rgb[border:-border, border:-border] if width > 2 * border and height > 2 * border else rgb
     border_pixels = np.concatenate((rgb[:border].reshape(-1, 3), rgb[-border:].reshape(-1, 3), rgb[:, :border].reshape(-1, 3), rgb[:, -border:].reshape(-1, 3)))
-    border_variation = float(np.mean(np.std(border_pixels.astype(float), axis=0)))
+    background = np.median(rgb.reshape(-1, 3).astype(float), axis=0)
+    border_difference = np.mean(np.abs(border_pixels.astype(float) - background), axis=1)
+    changed_border_fraction = float(np.mean(border_difference > 12))
     centre_variation = float(np.mean(np.std(centre.astype(float), axis=0)))
-    crop_status = "review" if border_variation > max(18, centre_variation * 0.8) else "pass"
+    crop_status = "review" if changed_border_fraction >= 0.01 else "pass"
     crop_message = "Important content may touch the image edge; inspect for clipping." if crop_status == "review" else "No strong edge-clipping signal was detected."
-    checks.append(_check("edges", "Edge and cropping signal", crop_status, crop_message, f"Border variation: {border_variation:.1f}; centre variation: {centre_variation:.1f}", 15))
+    evidence = f"Changed border pixels: {changed_border_fraction * 100:.1f}%; centre variation: {centre_variation:.1f}"
+    checks.append(_check("edges", "Edge and cropping signal", crop_status, crop_message, evidence, 15))
 
     desc_len = len(description.strip())
     if 40 <= desc_len <= 1000:
